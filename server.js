@@ -5,17 +5,46 @@
 
 'use strict';
 
-const express = require('express');
 
-// Constants
-const PORT = 3000;
-const HOST = '0.0.0.0';
+var express = require('express');
+var passport = require('passport');
+var mongoose = require('mongoose');
+var user = require('./routes/user');
+var app = express();
 
-// App
-const app = express();
-app.get('/', (req, res) => {
-	res.send('Hello remote world!\n');
+require('dotenv').config();
+console.log(process.env.EMAIL_HOST)
+var port = process.env.PORT || 3000;
+user(app);
+
+
+var db = require('./setup/urls').mongoURL;
+mongoose
+	.connect(db)
+	.then(() => console.log(`mongodb connected`))
+	.catch((err) => console.log(err));
+
+
+
+// Serialize and deserialize user for session management
+passport.serializeUser((user, done) => {
+    done(null, user.id); // Store user ID in session
 });
 
-app.listen(PORT, HOST);
-console.log(`Running on http://${HOST}:${PORT}`);
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await User.findById(id);
+        done(null, user);
+    } catch (error) {
+        done(error);
+	}
+});
+
+
+app.use(passport.initialize());
+require('./strategies/jwtStrategy')(passport);
+
+
+app.listen(port, () => {
+	console.log(`server is running or listening at port ${port}`);
+});
